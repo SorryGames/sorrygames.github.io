@@ -1,0 +1,130 @@
+=========   Cumulus Guide | Draevich Matvey | Solidex.by | mdraevich@solidex.by  =========
+
+
+
+
+
+=========   Общие   =========
+
+	1) Просмотр и редактирование файлов
+		а) cat <path> (просмотр) 
+		б) sudo nano <path> (просмотр + редактирование)
+
+	2) config-файл
+		а) /etc/network/interfaces (путь)
+		б) sudo ifreload -a (рестарт config-файла)
+		в) net del all (сброс к заводским настройкам)
+
+	3) netd.service
+		а) /etc/netd.conf (путь)
+		б) sudo systemctl restart netd.service (рестарт netd.service)
+
+	4) Информация об интерфейсах
+		а) net show interface (информация о всех интерфейсах)
+		б) net show interface <name_of_interface> (информация о конкретном интерфейсе)
+
+=========   Общие   =========
+
+
+
+
+
+=========   Коммутация | Интерфейсы | LACP | Агрегирование каналов   =========
+
+	1) Можно отключить MAC-learning и заставить устройство работать в режиме повторителя
+		а) bridge-learning off (изменить config-файл, добавить под нужными портами)
+		
+	2) Просмотр FIB (Forwarding Information Base)
+		а) net show bridge macs
+
+	3) Интерфейсы 
+		а) net add interface <name> link down (отключение)
+		б) net add interface <name> link autoneg on / duplex full / speed 10000 / mtu 1500 (статическая настройка интерфейса)
+		в) sudo ethtool -s swp1 speed 100 duplex full autoneg off (статическая настройка интерфейса, используя утилиту ethtool)
+
+	=========   LACP | Агрегирование каналов   =========
+
+		1) LACP, агрегирование каналов
+			а) net add bond <name> bond slaves swp1,2 (отдает порты под управление bond-процессу, порты MUST BE unslaved / NotConfigured)
+			б) net add bond <name> bridge trunk (создает новый интерфейс, который доступен для передачи фреймов)
+			в) net show interface bondmems (информация о всех участниках bond-процессов)
+	
+	=========   LACP | Агрегирование каналов   =========
+
+
+
+=========   Коммутация | Интерфейсы | LACP | Агрегирование каналов   =========
+
+
+
+
+
+=========   VLAN   =========
+
+	1) Существуют Access и Trunk порты для коммутатора 
+		а) net add int swp1 bridge trunk (trunk порт, разрешенные VLAN ID хранятся в bridge-свойствах)
+		б) net add int swp1 bridge access <value> (access порт)
+		в) net add int swp1 bridge pvid <value> (access порт)
+		г) net add vlan <value> (добавляет требуемый VLAN ID в bridge-свойства)
+		д) net add int swp1 bridge trunk vlans <list of values> (trunk порт, разрешенные VLAN ID переопределяются списком )
+
+	2) Политика Access портов
+		а) Входящие
+			- Если тега нет, то верный тег добавляется в соответствии с VLAN ID порта.
+			- Если тег есть, и он верный, то фрейм пропускается без модификаций. Если неверный, то сброс фрейма. 
+		б) Исходящие - снимает тег, отправляет нетегированный фрейм получателю. 
+
+	3) Политика Trunk портов
+		а) Входящие - принимает любой фрейм, для каждого знает соответствующий VLAN. Тег не модифицирует. 
+		б) Исходящие - отправляет любой фрейм, учитывая принадлежность VLAN. Тег не модифицирует.
+
+	4) Существует Native VLAN (default = 1), не тегируется ПРИ ПЕРЕДАЧИ
+		а) Следовательно, каждый коммутатор внутри себя всегда содержит теггированный фрейм.
+			- При входящих фреймах тег может добавляться коммутатором (при отсутствии тега)
+			- При исходящих тег может удаляться коммутатором (например Native VLAN, Access порт)
+
+
+
+	=========   VLAN | IP   =========
+		
+		1) Использование VLAN как ip-интерфейс
+			а) net add vlan <value> ip addr <ip/mask> 
+
+	=========   VLAN | IP   =========
+
+
+
+=========   VLAN   =========
+
+
+
+
+
+=========   RSTP   =========
+
+	1) RSTP включен по умолчанию
+		a) net add bridge stp off (отключение rstp)
+
+	2) Root, Designated Root выбирается по паре priority / MAC-address
+		а) mstpctl-treeprio <value> (изменить /etc/network/interfaces) 
+		б) net add bridge stp treeprio <value>
+
+	3) portpathcost добавляется со стороны принимающего коммутатора. Изначальное значение выставляется согласно пропускной способности интерфейса, позже admin может перезаписать значение. 
+		а) Требуется убрать из черного списка (/etc/netd.conf) и выполнить sudo systemctl restart netd.service
+		б) mstpctl-portpathcost <value> (изменить /etc/network/interfaces)
+		в) net add int swp1 stp portpathcost <value> (value != 0)
+
+	4) Информация о RSTP
+		а) net show bridge spanning-tree
+
+=========   RSTP   =========
+
+
+
+
+
+
+
+
+
+
